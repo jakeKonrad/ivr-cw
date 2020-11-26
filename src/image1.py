@@ -14,7 +14,7 @@ GREEN = [0,255,0]
 BLUE = [255,0,0]
 RED = [0,0,255]
 
-def get_joint(img, color):
+def get_blob_center(img, color):
     
     color_ = np.uint8([[color]])
     hsv_color = cv2.cvtColor(color_,cv2.COLOR_BGR2HSV)
@@ -41,10 +41,16 @@ def get_joint(img, color):
     cnt = contours[0]
     M = cv2.moments(cnt)
 
-    z = int(M['m10']/M['m00'])
-    y = int(M['m01']/M['m00'])
+    cx = int(M['m10']/M['m00'])
+    cy = int(M['m01']/M['m00'])
 
-    return (z,y)
+    return np.array([cx, cy])
+
+def pixel2Meter(img):
+    x = get_joint(img, BLUE)
+    y = get_joint(img, GREEN)
+    dist = np.sum((x - y) ** 2)
+    return 3.5 / np.sqrt(dist)
 
 class image_converter:
 
@@ -70,14 +76,6 @@ class image_converter:
     
     # Uncomment if you want to save the image
     #cv2.imwrite('image_copy.png', cv_image)
-
-    joint2 = get_joint(self.cv_image1, BLUE)
-    joint3 = get_joint(self.cv_image1, GREEN)
-    joint4 = get_joint(self.cv_image1, RED)
-
-    #print(joint2)
-    #print(joint3)
-    #print(joint4)
 
     im1=cv2.imshow('window1', self.cv_image1)
     cv2.waitKey(1)
