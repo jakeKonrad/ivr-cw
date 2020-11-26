@@ -10,6 +10,41 @@ from sensor_msgs.msg import Image
 from std_msgs.msg import Float64MultiArray, Float64
 from cv_bridge import CvBridge, CvBridgeError
 
+GREEN = [0,255,0]
+BLUE = [255,0,0]
+RED = [0,0,255]
+
+def get_joint(img, color):
+    
+    color_ = np.uint8([[color]])
+    hsv_color = cv2.cvtColor(color_,cv2.COLOR_BGR2HSV)
+
+    h = hsv_color[0][0][0]
+
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+
+    lo = np.array([h-10,100,100])
+    hi = np.array([h+10,255,255])
+
+    mask = cv2.inRange(hsv,lo,hi)
+
+    res = cv2.bitwise_and(img,img,mask=mask)
+
+    res = cv2.cvtColor(res, cv2.COLOR_BGR2GRAY)
+
+    blur = cv2.GaussianBlur(res,(5,5),0)
+
+    ret, th = cv2.threshold(blur,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+
+    contours,hierarchy = cv2.findContours(th, 1, 2)
+
+    cnt = contours[0]
+    M = cv2.moments(cnt)
+
+    z = int(M['m10']/M['m00'])
+    y = int(M['m01']/M['m00'])
+
+    return (z,y)
 
 class image_converter:
 
@@ -35,6 +70,14 @@ class image_converter:
     
     # Uncomment if you want to save the image
     #cv2.imwrite('image_copy.png', cv_image)
+
+    joint2 = get_joint(self.cv_image1, BLUE)
+    joint3 = get_joint(self.cv_image1, GREEN)
+    joint4 = get_joint(self.cv_image1, RED)
+
+    #print(joint2)
+    #print(joint3)
+    #print(joint4)
 
     im1=cv2.imshow('window1', self.cv_image1)
     cv2.waitKey(1)
