@@ -14,6 +14,7 @@ import math
 GREEN = [0,255,0]
 BLUE = [255,0,0]
 RED = [0,0,255]
+ORANGE = [0, 150, 255]
 
 def get_blob_center(img, color):
     
@@ -33,17 +34,6 @@ def get_blob_center(img, color):
 
     mask = cv2.dilate(mask, kernel, iterations=3)
 
-    #res = cv2.bitwise_and(img,img,mask=mask)
-
-    #res = cv2.cvtColor(res, cv2.COLOR_BGR2GRAY)
-
-    #blur = cv2.GaussianBlur(res,(5,5),0)
-
-    #ret, th = cv2.threshold(blur,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
-
-    #contours,hierarchy = cv2.findContours(th, 1, 2)
-
-    #cnt = contours[0]
     M = cv2.moments(mask)
 
     if int(M['m00']) == 0:
@@ -76,6 +66,45 @@ def goal_angles(t):
     ja3 = (math.pi/2) * math.sin((math.pi / 18) * t)
     ja4 = (math.pi/2) * math.sin((math.pi / 20) * t)
     return np.array([ja2, ja3, ja4])
+
+def get_target(img):
+    color = ORANGE
+    color_ = np.uint8([[color]])
+    hsv_color = cv2.cvtColor(color_,cv2.COLOR_BGR2HSV)
+
+    h = hsv_color[0][0][0]
+
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+
+    lo = np.array([h-10,100,100])
+    hi = np.array([h+10,255,255])
+
+    mask = cv2.inRange(hsv,lo,hi)
+
+    kernel = np.ones((5,5), np.uint8)
+
+    mask = cv2.dilate(mask, kernel, iterations=3)
+
+    contours,hierarchy = cv2.findContours(mask,1,2)
+
+    contours.sort(key=lambda cnt: (2 * math.sqrt(cv2.contourArea(cnt) * math.pi)) / cv2.arcLength(cnt, True))
+
+    cnt = contours[0]
+
+    M = cv2.moments(cnt)
+
+    cx = int(M['m10']/M['m00'])
+    cy = int(M['m01']/M['m00'])
+
+    orange_center = np.array([cx,cy])
+    blue_center = get_blob_center(img, BLUE)
+
+    a = pixel2Meter(img)
+
+    vect = a * (blue_center - orange_center)
+
+    return vect
+
 
 class image_converter:
 
@@ -113,6 +142,11 @@ class image_converter:
     est_ja3 = rospy.Publisher('/robot/joint3_position_estimate', Float64, queue_size=10)
     est_ja4 = rospy.Publisher('/robot/joint4_position_estimate', Float64, queue_size=10)
 
+    target_y = rospy.Publisher('/robot/target_y_estimate', Float64, queue_size=10)
+    target_z = rospy.Publisher('/robot/target_z_estimate', Float64, queue_size=10)
+
+    target = get_target(self.cv_image1)
+
     im1=cv2.imshow('window1', self.cv_image1)
     cv2.waitKey(1)
     # Publish the results
@@ -126,6 +160,8 @@ class image_converter:
       est_ja3.publish(ja[1])
       est_ja4.publish(ja[2])
 
+      target_y.publish(target[0])
+      target_z.publish(target[1])
 
     except CvBridgeError as e:
       print(e)
