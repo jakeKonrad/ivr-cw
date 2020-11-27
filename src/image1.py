@@ -106,6 +106,10 @@ class image_converter:
     pub_ja3 = rospy.Publisher('/robot/joint3_position_controller/command', Float64, queue_size=10)
     pub_ja4 = rospy.Publisher('/robot/joint4_position_controller/command', Float64, queue_size=10)
 
+    est_ja2 = rospy.Publisher('/robot/joint2_position_estimate', Float64, queue_size=10)
+    est_ja3 = rospy.Publisher('/robot/joint3_position_estimate', Float64, queue_size=10)
+    est_ja4 = rospy.Publisher('/robot/joint4_position_estimate', Float64, queue_size=10)
+
     im1=cv2.imshow('window1', self.cv_image1)
     cv2.waitKey(1)
     # Publish the results
@@ -114,6 +118,11 @@ class image_converter:
       pub_ja2.publish(ja_[0])
       pub_ja3.publish(ja_[1])
       pub_ja4.publish(ja_[2])
+      
+      est_ja2.publish(ja[0])
+      est_ja3.publish(ja[1])
+      est_ja4.publish(ja[2])
+
 
     except CvBridgeError as e:
       print(e)
