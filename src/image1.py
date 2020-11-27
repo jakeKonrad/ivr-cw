@@ -9,6 +9,7 @@ from std_msgs.msg import String
 from sensor_msgs.msg import Image
 from std_msgs.msg import Float64MultiArray, Float64
 from cv_bridge import CvBridge, CvBridgeError
+import math
 
 GREEN = [0,255,0]
 BLUE = [255,0,0]
@@ -28,29 +29,50 @@ def get_blob_center(img, color):
 
     mask = cv2.inRange(hsv,lo,hi)
 
-    res = cv2.bitwise_and(img,img,mask=mask)
+    kernel = np.ones((5,5), np.uint8)
 
-    res = cv2.cvtColor(res, cv2.COLOR_BGR2GRAY)
+    mask = cv2.dilate(mask, kernel, iterations=3)
 
-    blur = cv2.GaussianBlur(res,(5,5),0)
+    #res = cv2.bitwise_and(img,img,mask=mask)
 
-    ret, th = cv2.threshold(blur,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+    #res = cv2.cvtColor(res, cv2.COLOR_BGR2GRAY)
 
-    contours,hierarchy = cv2.findContours(th, 1, 2)
+    #blur = cv2.GaussianBlur(res,(5,5),0)
 
-    cnt = contours[0]
-    M = cv2.moments(cnt)
+    #ret, th = cv2.threshold(blur,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+
+    #contours,hierarchy = cv2.findContours(th, 1, 2)
+
+    #cnt = contours[0]
+    M = cv2.moments(mask)
 
     cx = int(M['m10']/M['m00'])
     cy = int(M['m01']/M['m00'])
 
     return np.array([cx, cy])
 
+
 def pixel2Meter(img):
-    x = get_joint(img, BLUE)
-    y = get_joint(img, GREEN)
+    x = get_blob_center(img, BLUE)
+    y = get_blob_center(img, GREEN)
     dist = np.sum((x - y) ** 2)
     return 3.5 / np.sqrt(dist)
+
+def joint_angles(img):
+    a = pixel2Meter(img)
+    blue_center = get_blob_center(img, BLUE)
+    green_center = get_blob_center(img, GREEN)
+    red_center = get_blob_center(img, RED) 
+    ja2 = np.arctan2(blue_center[0] - green_center[0], blue_center[1] - blue_center[1])
+    ja3 = np.arctan2(blue_center[0] - green_center[0], blue_center[1] - blue_center[1]) - ja2
+    ja4 = np.arctan2(green_center[0] - red_center[0], green_center[1] - red_center[1]) - ja2 - ja3
+    return np.array([ja2, ja3, ja4])
+
+def goal_angles(t):
+    ja2 = (math.pi/2) * math.sin((math.pi / 15) * t)
+    ja3 = (math.pi/2) * math.sin((math.pi / 18) * t)
+    ja4 = (math.pi/2) * math.sin((math.pi / 20) * t)
+    return np.array([ja2, ja3, ja4])
 
 class image_converter:
 
@@ -77,11 +99,22 @@ class image_converter:
     # Uncomment if you want to save the image
     #cv2.imwrite('image_copy.png', cv_image)
 
+    ja = joint_angles(self.cv_image1)
+    t = rospy.get_time()
+    ja_ = goal_angles(t)
+    pub_ja2 = rospy.Publisher('/robot/joint2_position_controller/command', Float64, queue_size=10)
+    pub_ja3 = rospy.Publisher('/robot/joint3_position_controller/command', Float64, queue_size=10)
+    pub_ja4 = rospy.Publisher('/robot/joint4_position_controller/command', Float64, queue_size=10)
+
     im1=cv2.imshow('window1', self.cv_image1)
     cv2.waitKey(1)
     # Publish the results
     try: 
       self.image_pub1.publish(self.bridge.cv2_to_imgmsg(self.cv_image1, "bgr8"))
+      pub_ja2.publish(ja_[0])
+      pub_ja3.publish(ja_[1])
+      pub_ja4.publish(ja_[2])
+
     except CvBridgeError as e:
       print(e)
 
