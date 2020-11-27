@@ -105,6 +105,47 @@ def get_target(img):
 
     return vect
 
+def get_joint_state_black(img):
+    color = [0,0,0]
+    color_ = np.uint8([[color]])
+    hsv_color = cv2.cvtColor(color_,cv2.COLOR_BGR2HSV)
+
+    h = hsv_color[0][0][0]
+
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+
+    lo = np.array([h-10,100,100])
+    hi = np.array([h+10,255,255])
+
+    mask = cv2.inRange(hsv,lo,hi)
+
+    kernel = np.ones((5,5), np.uint8)
+
+    mask = cv2.dilate(mask, kernel, iterations=3)
+
+    contours,hierarchy = cv2.findContours(mask,1,2)
+
+    contours = reversed(contours)
+
+    def centers(x):
+        M = cv2.moments(x)
+        cx = int(M['m10']/M['m00'])
+        cy = int(M['m01']/M['m00'])
+        return np.array([cx,cy])
+
+    contour_centers = list(map(centers, contours))
+
+    a = pixel2Meter(img)
+
+    blue_center = contour_centers[0]
+    green_center = contour_centers[1]
+    red_center = contour_centers[2]
+
+    ja2 = np.arctan2(blue_center[0] - green_center[0], blue_center[1] - blue_center[1])
+    ja3 = np.arctan2(blue_center[0] - green_center[0], blue_center[1] - blue_center[1]) - ja2
+    ja4 = np.arctan2(green_center[0] - red_center[0], green_center[1] - red_center[1]) - ja2 - ja3
+    
+    return np.array([ja2, ja3, ja4])
 
 class image_converter:
 
