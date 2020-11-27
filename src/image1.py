@@ -46,6 +46,9 @@ def get_blob_center(img, color):
     #cnt = contours[0]
     M = cv2.moments(mask)
 
+    if int(M['m00']) == 0:
+        return np.array([0,0])
+
     cx = int(M['m10']/M['m00'])
     cy = int(M['m01']/M['m00'])
 
